@@ -1,0 +1,196 @@
+#include <opencv2/opencv.hpp>
+#include<opencv2/core/core.hpp>
+#include <opencv2/face.hpp>
+#include<opencv2/highgui/highgui.hpp>
+#include <opencv2/tracking.hpp>
+#include <opencv2/dnn.hpp>
+#include<opencv2/xfeatures2d.hpp>
+#include<io.h>
+#include <iostream>
+#include<stdio.h>
+#include<string>
+#include<cmath>
+using namespace std;
+using namespace cv;
+using namespace cv::ml;
+using namespace cv::dnn;
+using namespace cv::xfeatures2d;
+using namespace cv::face;
+String model_bin_file = "C:/Users/DELL/Desktop/lnkkk/MobileNetSSD_deploy.caffemodel";
+String model_txt_file = "C:/Users/DELL/Desktop/lnkkk/MobileNetSSD_deploy.prototxt";
+String labels_txt_file = "C:/Users/DELL/Desktop/lnkkk/synset_words.txt";
+int i,j,k;
+char c;
+bool init = true;
+void onMouse(int event, int x, int y, int flags, void* param);
+Mat img1,img2;
+CascadeClassifier face_dector;
+CascadeClassifier eye_dector;
+string face_dectors = "D:/OPENCV/opencv/newbulid/install/etc/lbpcascades/lbpcascade_frontalface_improved.xml";
+string eye_dectors = "D:/OPENCV/opencv/newbulid/install/etc/haarcascades/haarcascade_eye.xml";
+Rect rect;
+vector<string>samples;
+vector<int>idexs;
+vector<Mat>images;
+void duquyangben();//读取样本操作
+void bianliwenjian();//遍历文件夹下的文件名  并且写入yml
+void xiugaiwenjian();//修改样本
+const char *name[] = { "E:/人脸样本lnk/*.jpg","E:/人脸样本xhx/*.jpg" };
+const char *nameone[] = { "E:/人脸样本lnk1/","E:/人脸样本xhx1/" };
+string dizhi[] = { "E:/人脸样本lnk/","E:/人脸样本xhx/" };
+int haoma[] = { 3,2 };
+Point ptL, ptR;
+Mat imageSourceCopy, imageSource,ROI;
+typedef struct
+{
+	int y;
+	string s;
+}test_t;
+int main()
+{ 
+	/*img1 = imread("C:/Users/DELL/Desktop/lnkkk/lena.jpg");
+	if (img1.empty()) {
+		cout << "图片读取失败" <<endl;
+		system("pause");
+		return -1;
+	}*/
+	bianliwenjian();//遍历样本
+	//测试样本
+	Mat testSample ;
+	Ptr<EigenFaceRecognizer> model = EigenFaceRecognizer::create();
+	model->train(images, idexs);
+	int resultnumber;
+	//cout << resultnumber << endl;
+	for (i = 0; i < 40; i++) {
+		testSample = images[i];
+		cvtColor(testSample, testSample, COLOR_RGB2GRAY);
+		resultnumber = model->predict(testSample);
+		cout << idexs[i]<<"  "<<resultnumber <<endl;
+	}
+
+	/*CascadeClassifier face_dector;
+	face_dector.load(face_dectors);
+	if (face_dector.empty()) {
+		cout << "无法load face 文件" << endl;
+		system("pause");
+		return -1;
+	}
+	VideoCapture ves(0);
+	if (!ves.isOpened()) {
+		cout << "摄像头未正常打开" << endl;
+		system("pause");
+		return -1;
+	}
+	char c;
+	vector<Rect>faces;
+	Mat module;*/
+	//int num = 0;
+	/*while (ves.read(img1)) {
+		flip(img1, img1, 1);
+		face_dector.detectMultiScale(img1, faces, 1.1, 2, 0, Size(100, 100));
+		for (i = 0; i < faces.size(); i++) {
+			module = img1(faces[i]).clone();
+			cvtColor(module, module, COLOR_RGB2GRAY);
+			resize(module, module, Size(100, 100));
+			resultnumber = model->predict(module);
+			if (resultnumber == 1) {
+				putText(img1, "lnk", faces[i].tl(), FONT_HERSHEY_PLAIN, 1.0, Scalar(0, 0, 255), 2, 8);
+			}
+			if (resultnumber == 2) {
+				putText(img1, "xhx", faces[i].tl(), FONT_HERSHEY_PLAIN, 1.0, Scalar(0, 0, 255), 2, 8);
+			}
+			rectangle(img1, faces[i], Scalar(0, 0, 255), 1);
+		}
+		imshow("原图", img1);
+		c = waitKey(30);
+		if (c == 27)
+			break;
+	}
+	ves.release();*/
+	waitKey(0);
+	system("pause");
+	return 0;
+}
+void xiugaiwenjian() {
+	for (i = 0; i < 2; i++) {
+		vector<string>samples1;
+		samples.resize(0);
+		images.resize(0);
+		intptr_t handle;
+		const char *mingzi = name[i];
+		_finddata64i32_t file;
+		handle = _findfirst(mingzi, &file);
+		if (handle == -1) {
+			cout << "查找失败" << endl;
+			system("pause");
+			exit(0);
+		}
+		string jizhi = dizhi[i];
+		string houzhi = nameone[i];
+		samples.push_back(jizhi + file.name);
+		samples1.push_back(houzhi + file.name);
+		//idexs.push_back(haoma[i]);
+		while (!_findnext(handle, &file)) {
+			samples.push_back(jizhi + file.name);
+			samples1.push_back(houzhi + file.name);
+			//idexs.push_back(haoma[i]);
+		}
+		/*cout << "读入样品个数:" << samples.size() << endl;
+		for (i = 0; i < samples.size(); i++)
+			cout << samples[i] << endl;*/
+		Mat kk;
+		for (j = 0; j < samples.size(); j++) {
+			kk = imread(samples[j]);
+			cvtColor(kk, kk, COLOR_RGB2GRAY);
+			//images.push_back(kk);
+			imwrite(samples1[j], kk);
+		}
+	}
+	cout << "读入图片个数" << samples.size() << endl;
+	//cout << "读入序号个数" << idexs.size() << endl;
+}
+void bianliwenjian() {
+	for (i = 0; i < 2; i++) {
+		samples.resize(0);
+		intptr_t handle;
+		const char *mingzi = name[i];
+		_finddata64i32_t file;
+		handle = _findfirst(mingzi, &file);
+		if (handle == -1) {
+			cout << "查找失败" << endl;
+			system("pause");
+			exit(0);
+		}
+		string jizhi = dizhi[i];
+		samples.push_back(jizhi + file.name);
+		idexs.push_back(haoma[i]);
+		while (!_findnext(handle, &file)) {
+			samples.push_back(jizhi + file.name);
+			idexs.push_back(haoma[i]);
+		}
+		/*cout << "读入样品个数:" << samples.size() << endl;
+		for (i = 0; i < samples.size(); i++)
+			cout << samples[i] << endl;*/
+		Mat kk;
+		for (j = 0; j < samples.size(); j++) {
+			kk = imread(samples[j]);
+			images.push_back(kk);
+		}
+	}
+	cout << "读入图片个数" << images.size() << endl;
+	cout << "读入序号个数" << idexs.size() << endl;
+	//写入yml
+	/*FileStorage fs("E:/人脸样本lnk/data.yml", FileStorage::WRITE);
+	map<string, int>mas;
+	for (i = 0; i < samples.size(); i++) {
+		mas[samples[i]] = idexs[i];
+	}
+	map<string, int>::iterator it = mas.begin();
+	fs << "data" << "[";
+	for (; it != mas.end(); it++) {
+		fs << "{";
+		fs << it->first << it->second;
+		fs << "}";
+	}
+	fs << "]";*/
+}
