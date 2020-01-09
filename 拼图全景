@@ -1,0 +1,140 @@
+#include <opencv2/opencv.hpp>
+#include<opencv2/core/core.hpp>
+#include <opencv2/face.hpp>
+#include<opencv2/highgui/highgui.hpp>
+#include <opencv2/tracking.hpp>
+#include <opencv2/dnn.hpp>
+#include <opencv2/xfeatures2d/nonfree.hpp>
+#include<io.h>
+#include <iostream>
+#include<stdio.h>
+#include<string>
+#include<cmath>
+using namespace std;
+using namespace cv;
+using namespace cv::ml;
+using namespace cv::dnn;
+using namespace cv::xfeatures2d;
+using namespace cv::face;
+String model_bin_file = "C:/Users/DELL/Desktop/lnkkk/MobileNetSSD_deploy.caffemodel";
+String model_txt_file = "C:/Users/DELL/Desktop/lnkkk/MobileNetSSD_deploy.prototxt";
+String labels_txt_file = "C:/Users/DELL/Desktop/lnkkk/synset_words.txt";
+int i,j,k;
+char c;
+bool init = true;
+void onMouse(int event, int x, int y, int flags, void* param);
+void drawkeypoints(Mat& inputone, Mat& inputtwo);
+void CalcCorners(const Mat& H, const Mat& src);
+Mat img1,img2;
+Mat toushi;//透视矩阵
+CascadeClassifier face_dector;
+CascadeClassifier eye_dector;
+string face_dectors = "D:/OPENCV/opencv/newbulid/install/etc/lbpcascades/lbpcascade_frontalface_improved.xml";
+string eye_dectors = "D:/OPENCV/opencv/newbulid/install/etc/haarcascades/haarcascade_eye.xml";
+Rect rect;
+int main()
+{ 
+	img1 = imread("C:/Users/DELL/Desktop/lnkkk/loadone.jpg");
+	img2 = imread("C:/Users/DELL/Desktop/lnkkk/loadtwo.jpg");
+	if (img1.empty()||img2.empty()) {
+		cout << "不能加载图片" << endl;
+		system("pause");
+		return -1;
+	}
+	imshow("p1", img1);
+	imshow("p2", img2);
+	imshow("原图2", imgtwo);*/
+	drawkeypoints(img1, img2);
+	waitKey(0);
+	system("pause");
+	return 0;
+}
+void drawkeypoints(Mat& inputone, Mat& inputtwo) {
+	Mat testone, testtwo;
+	testone = inputone.clone();
+	testtwo = inputtwo.clone();
+	Mat desone, destwo;
+	vector<KeyPoint>keysone;
+	vector<KeyPoint>keystwo;
+	Ptr<SURF>surfdector=SURF::create(400);
+	surfdector->detectAndCompute(testone, Mat(), keysone, desone);
+	surfdector->detectAndCompute(testtwo, Mat(), keystwo, destwo);
+	cout << "检测到第一幅图的特征点个数: " << keysone.size() << endl;
+	cout << "检测到第二幅图的特征点个数: " << keystwo.size() << endl;
+	FlannBasedMatcher flanmatcher;
+	vector<DMatch>dmatchs;
+	vector<DMatch>goodmatches;
+	flanmatcher.match(desone, destwo, dmatchs);
+	double maxdistance=0, mindistance=100;
+	for (i = 0; i < dmatchs.size(); i++) {
+		if (dmatchs[i].distance > maxdistance)
+			maxdistance = dmatchs[i].distance;
+		else if(dmatchs[i].distance < mindistance)
+			mindistance = dmatchs[i].distance;
+	}
+	cout << "最大距离: " << maxdistance << endl;
+	cout << "最小距离: " << mindistance << endl;
+	for (i = 0; i < dmatchs.size(); i++) {
+		if (dmatchs[i].distance < max(mindistance*2,0.02))//((mindistance+maxdistance)/4
+			goodmatches.push_back(dmatchs[i]);
+	}
+	cout << "好的匹配点个数: " << goodmatches.size() << endl;
+	Mat result;
+	drawMatches(testone, keysone, testtwo, keystwo, goodmatches, result);
+	//imshow("结果", result);
+	//寻找透视矩阵
+	vector<Point2f>dianone;
+	vector<Point2f>diantwo;
+	for (i = 0; i < goodmatches.size(); i++) {
+		dianone.push_back(keysone[goodmatches[i].queryIdx].pt);// queryIdx
+		diantwo.push_back(keystwo[goodmatches[i].trainIdx].pt);
+	}
+	cout << "dianone:" << dianone.size() << endl;
+	cout << "diantwo:" << diantwo.size() << endl;
+	toushi=findHomography(diantwo, dianone, RANSAC);
+	vector<Point2f> obj_corners(4);
+	obj_corners[0] = Point(0, 0); obj_corners[1] = Point(testone.cols, 0);
+	obj_corners[2] = Point(testone.cols, testone.rows); obj_corners[3] = Point(0, testone.rows);
+	vector<Point2f> scene_corners(4);
+	perspectiveTransform(obj_corners, scene_corners, toushi);
+	Point2f pianyi = Point(testone.cols, 0);
+	for (i = 0; i < 4; i++) {
+		cout << scene_corners[i] << endl;
+	}
+	line(result, scene_corners[0] + pianyi, scene_corners[1] + pianyi, Scalar(0, 255, 0), 2);
+	line(result, scene_corners[1] + pianyi, scene_corners[2] + pianyi, Scalar(0, 255, 0), 2);
+	line(result, scene_corners[2] + pianyi, scene_corners[3] + pianyi, Scalar(0, 255, 0), 2);
+	line(result, scene_corners[3] + pianyi, scene_corners[0] + pianyi, Scalar(0, 255, 0), 2);
+	imshow("结果", result);
+	Mat resultimage;
+	cout << "testone尺寸:" << testone.size() << endl;
+	cout << "testtwo尺寸:" << testtwo.size() << endl;
+	warpPerspective(testtwo, resultimage, toushi, Size(MAX(scene_corners[1].x, scene_corners[2].x),testtwo.rows), INTER_LINEAR);
+	cout << "resultimage.size : " << resultimage.size() << endl;
+	Mat kk;
+	kk = resultimage.clone();
+	inputone.copyTo(kk(Rect(0, 0, inputone.cols, inputone.rows)));
+	int start = MIN(scene_corners[0].x, scene_corners[3].x);
+	int needlength = inputone.cols - start;
+	int i, j;
+	double radio;
+	for (i = 0; i < inputone.rows; i++) {
+		uchar *uu = inputone.ptr<uchar>(i);
+		uchar *rr = resultimage.ptr<uchar>(i);
+		uchar *dd = kk.ptr<uchar>(i);
+		for (j = start; j < inputone.cols; j++) {
+			if (rr[j * 3] == 0 && rr[j * 3 + 1] == 0 && rr[j * 3 + 2] == 0)
+				radio = 1;
+			else
+			{
+				radio = double((needlength - (j - start))) / double(needlength);
+			}
+			dd[j * 3] = radio * uu[j * 3] + (1 - radio)*rr[j * 3];
+			dd[j * 3+1] = radio * uu[j * 3+1] + (1 - radio)*rr[j * 3+1];
+			dd[j * 3+2] = radio * uu[j * 3+2] + (1 - radio)*rr[j * 3+2];
+		}
+
+	}
+	imshow("拼接CH结果", kk);
+
+}
