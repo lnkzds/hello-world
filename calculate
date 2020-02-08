@@ -1,0 +1,119 @@
+#include "pch.h"
+#include <iostream>
+#include<stdio.h>
+#include<stdlib.h>
+using namespace std;
+
+#define stockinitsize  20
+#define elemtype  char
+typedef struct stack
+{
+	elemtype *bottom;
+	elemtype *top;
+	int stocksize;
+}stock;
+void init(stock* L);
+void pop(stock* L, elemtype* m);
+void push(stock* L, elemtype* m);
+int length(stock* L);
+int main()
+{
+	stock shuzi,fuhao;
+	char c,m,a[60];
+	int idex = 0;
+	init(&shuzi);
+	init(&fuhao);
+	int biaoji = 0;
+	scanf_s("%c", &c);
+	while (c != '\n') {
+			if (isdigit(c))
+			{
+				while (isdigit(c) || c == '.') {
+					cout << c;
+					a[idex++] = c;
+					scanf_s("%c", &c);
+				}
+				cout << " ";
+				a[idex++] = ' ';
+				if (c == '\n')
+					break;
+			}
+			if (c == '(')
+			{
+				push(&fuhao, &c);
+			}else if (c == ')')
+			{
+				pop(&fuhao, &m);
+				
+				while (m != '(')
+				{
+					cout << m << " ";
+					a[idex++] = m;
+					a[idex++] = ' ';
+					pop(&fuhao, &m);
+				}
+			}else if (c == '+' || c == '-')
+			{   
+					while (length(&fuhao) != 0)
+					{
+						pop(&fuhao, &m);
+						if (m == '(')
+						{
+							push(&fuhao, &m);
+							break;
+						}
+						cout << m << " ";
+						a[idex++] = m;
+						a[idex++] = ' ';
+					}
+				   push(&fuhao, &c);
+			}
+			else
+			{
+				push(&fuhao, &c);
+			}	
+
+		scanf_s("%c", &c);
+	}
+	while (length(&fuhao) != 0) {
+		pop(&fuhao, &m);
+		cout << m << " ";
+		a[idex++] = m;
+		a[idex++] = ' ';
+	}
+	a[idex] = '\0';
+	cout << endl;
+	cout << idex << endl;
+	/*for (int i = 0; a[i] != '\0'; i++)
+		cout << a[i];*/
+	return 0;
+}
+
+void init(stock* L)//
+{
+	L->bottom = (elemtype*)malloc(stockinitsize * sizeof(elemtype));
+	if (!L->bottom)
+	{
+		exit(0);
+	}
+	L->top = L->bottom;
+	L->stocksize = stockinitsize;
+}
+void pop(stock* L, elemtype* m)
+{
+	if (L->bottom == L->top)
+		return;
+	*m = *--(L->top);
+}
+void push(stock* L, elemtype* m)
+{
+	if (L->top - L->bottom >= L->stocksize) {
+		L->bottom = (elemtype *)realloc(L->bottom, (L->stocksize + 20));
+	}
+	*L->top = *m;
+	L->top++;
+}
+int length(stock* L)
+{
+	return L->top - L->bottom;
+}
